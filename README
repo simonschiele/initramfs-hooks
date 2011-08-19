@@ -1,0 +1,50 @@
+
+Simons debian Initramfs hooks. 
+
+Put them in your debian based system to /etc/initramfs-tools/hooks/, and
+activate the scripts you want with 'chmod +x' or deactivate them with 'chmod -x'.
+When finished, recreate initrd with 'update-initramfs -k <kernel_release> -u'.
+
+If you want to put this repo directly in your hooks directory, best deactivate the
+tracking of chmod +/-x with 'git config core.fileMode false'.
+
+Scripts:
+	> cryptoroot.sh		- Decrypt luks root-filesystems on remote maschines
+    > sleep.sh          - blocking boot procedure for a specific time
+    > openvpn.sh        - OpenVPN support
+
+if you need support or have cool improvements, don't hesitate to write a short mail: 
+    > simon.codingmonkey@googlemail.com
+
+###################
+cryptoroot.sh
+###################
+
+This script allows you to build an initrd that stops boot-procedure to let you
+type in passphrases to uncrypt your crypto devices. It also supports ethernet with
+dropbear ssh daemon to unlock root partition on remote hosts. For now it assumes that every
+entry in the crypttab is a luks device, but it will identify and use random crypted swap
+partitions.
+
+This script has a few config settings in the head that you might want to edit first.
+
+To make my life easier it brings a little menu, a script to unlock entrys from crypttab
+and maybe someday a remote-control-friendly tool to unlock my mediacenter.
+
+* If you only want the "decrypt for remote host"-feature, this here is depricated since Debian 
+* has a native sollution for this now. Today these scripts are only usefull, if you want to 
+* have a little more controll over the process, have some kind of freaky setup, need extended 
+* routing (e.g. hetzner) or for whatever reason the debian default way might not work for you.
+* But if you still want to use this, deactivate the native debian way by setting "DROPBEAR=n" 
+* and "DEVICE=" (empty value) in /etc/initramfs-tools/initramfs.conf.
+
+###################
+sleep.sh
+###################
+
+Simple script that blocks initramfs from continue booting for a specific time. The default
+time the script will use is 300 seconds. 
+You can change that sleep time via the kernel-parameter "initramfs-sleep". The Value is given 
+in seconds. Like "initramfs-sleep=1800" for half an hour or "initramfs-sleep=0" for no sleep at 
+all.
+
