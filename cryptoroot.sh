@@ -255,7 +255,7 @@ EOF
 netconfig="ifconfig $interface up\n"
 if ( $dhcp )
 then
-    netconfig="${netconifg}udhcpc -s /bin/simple.script -i $interface\n"
+    netconfig="${netconifg}udhcpc -b -s /bin/simple.script -i $interface\n"
 else
     netconfig="${netconfig}ifconfig $interface $ip_address netmask $netmask\n"
     netconfig="${netconfig}route add default $interface\n"
@@ -265,12 +265,14 @@ else
     then
         netconfig="${netconfig}${extended_routing}\n"
     fi
-    
-    if [ -n "$nameserver" ]
-    then
-        netconfig="${netconfig}echo namerserver $nameserver > /etc/resolv.conf\n"
-    fi
+
 fi
+
+if [ -n "$nameserver" ]
+then
+    netconfig="${netconfig}echo namerserver $nameserver > /etc/resolv.conf\n"
+fi
+
 sed -i "s|@netconfig@|$netconfig|g" ${DESTDIR}/scripts/local-top/network
 chmod 700 ${DESTDIR}/scripts/local-top/network
 
