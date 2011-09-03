@@ -263,8 +263,11 @@ if ( uname -m | grep -q "i[0-9]86" )
 then
     cp -fprL /lib/libns* ${DESTDIR}/lib/ 
     cp -fpL /lib/i386-linux-gnu/libns* ${DESTDIR}/lib/i386-linux-gnu/
-elif 
+elif ( uname -m | grep -q "x86.*64" ) 
+then
     cp -fpL /lib/x86_64-linux-gnu/libns* ${DESTDIR}/lib/x86_64-linux-gnu/ 
+else
+    error_exit "your architecture ($( uname -m )) seems not to be supported."
 fi
 
 ######## }}} #######################
