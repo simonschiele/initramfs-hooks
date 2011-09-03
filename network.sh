@@ -166,11 +166,11 @@ else
     netconfig="${netconfig}ifconfig $interface $ip_address netmask $netmask\n"
     netconfig="${netconfig}route add default $interface\n"
     netconfig="${netconfig}route add default gw $gateway\n"
-    
-    if [ -n "$extended_routing" ]
-    then
-        netconfig="${netconfig}${extended_routing}\n"
-    fi
+fi
+
+if [ -n "$extended_routing" ]
+then
+    netconfig="${netconfig}${extended_routing}\n"
 fi
 
 if [ -n "$nameserver" ]
