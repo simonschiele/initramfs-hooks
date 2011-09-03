@@ -1,45 +1,26 @@
 #!/bin/sh
 
 #
-# initramfs hook for booting remote machines with luks encrypted root filesystem
+# initramfs hook for decrypting filesystems
 # by simon <simon.codingmonkey@googlemail.com>
 #
 
 ##### Config {{{ ###################
 
 # needed directorys that will be created in initramfs
-needed_directories="/usr/sbin/ /proc/ /root/.ssh/ /var/run/ /var/tmp/ /var/lock /var/log /etc/dropbear /lib/i386-linux-gnu"
+needed_directories="/usr/sbin/ /var/run/ /var/tmp/ /var/lock /var/log"
 
 # depends that are not installed automatically - optional depends are only used
 # if installed on the base system.
-depends="/sbin/cryptsetup /bin/loadkeys /bin/chvt /usr/sbin/dropbear /usr/bin/passwd /bin/login /sbin/dmsetup"
+depends="/sbin/cryptsetup /sbin/dmsetup"
 optional_depends="/sbin/mdadm"
-
-# useraccount that will be copied to initramfs, additional to the root account
-username=simon
-
-# include debugging tools 
-debug=true
-
-# openvpn support - needs openvpn.sh hook enabled
-openvpn=false
-
-# setup network (if dhcp=true you can ignore ip_adress, netmask and gateway.
-# nameserver and extended routing are optional anyways.)
-dhcp=true
-interface=eth0
-ip_address="178.63.94.74"
-netmask="255.255.255.192"
-gateway="178.63.94.65"
-nameserver=""
-extended_routing="route add -net 178.63.94.64 netmask 255.255.255.192 gw 178.63.94.65" # normally not needed, leave blank
 
 # Hostname for greeting line
 hostname="nerdmail.de"
 
 ######## }}} #######################
 
-PREREQ=""
+PREREQ="network.sh"
 
 prereqs()
 {
@@ -67,23 +48,6 @@ esac
 . /usr/share/initramfs-tools/hook-functions
 echo "> Including cryptoroot.sh into initramfs"
 
-if ( $debug )
-then
-    depends="$depends /usr/bin/strace /bin/nc"
-fi
-
-if ( $dhcp )
-then
-    echo "Will use dhcp for network config."
-    depends="$depends /sbin/dhclient"
-else
-    echo "Will use static network config ($ip_address - $netmask)."
-    if [ -z $netmask ] || [ -z $ip_address ]
-    then
-        error_exit "Please set ip address and netmask if you don't use dhcp"
-    fi
-fi
-
 for dir in $needed_directories
 do
     mkdir -p ${DESTDIR}${dir}
@@ -110,8 +74,7 @@ do
 done
 
 echo -e "/bin/sh\n/scripts/local-top/cryptroot_block" > ${DESTDIR}/etc/shells
-grep -e root -e $username /etc/shadow > ${DESTDIR}/etc/shadow
-grep -e root -e $username /etc/passwd | sed -e 's@/bin/\(false\|bash\|sh\|zsh\|screen\)@/scripts/local-top/cryptroot_block@g' -e 's|/home/.*:|/var/tmp:|g' > ${DESTDIR}/etc/passwd
+sed -i -e 's@/bin/\(false\|bash\|sh\|zsh\|screen\)@/scripts/local-top/cryptroot_block@g' -e 's|/home/.*:|/var/tmp:|g' ${DESTDIR}/etc/passwd
 
 ##### Generate Scripts {{{ #########
 
@@ -119,7 +82,7 @@ grep -e root -e $username /etc/passwd | sed -e 's@/bin/\(false\|bash\|sh\|zsh\|s
 cat >${DESTDIR}/scripts/local-top/cryptroot_block << 'EOF'
 #!/bin/sh
 
-PREREQ="ssh"
+PREREQ="sshd"
 
 prereqs()
 {
@@ -144,12 +107,12 @@ message()
     echo ''
     echo 'Welcome to @hostname@'
     echo ''
-    echo ''
     echo 'Available commands:'
+    echo ' status)   Crypto Volume Status'
     echo ' unlock)   Decrypt and mount Harddisks'
-    echo ' sh)       Start sh'
-    echo ' reboot)   Rebooting the System'
     echo ' boot)     Continue booting'
+    echo ' reboot)   Rebooting the System'
+    echo ' sh)       Shell'
     echo ''
     echo ''
     echo 'Please input Command:'
@@ -198,169 +161,6 @@ EOF
 sed -i "s|@hostname@|$hostname|g" ${DESTDIR}/scripts/local-top/cryptroot_block 
 chmod 700 ${DESTDIR}/scripts/local-top/cryptroot_block
 
-# startscript for dropbear ssh daemon 
-cat >${DESTDIR}/scripts/local-top/ssh << 'EOF'
-#!/bin/sh
-
-PREREQ="network"
-
-prereqs()
-{
-    echo "$PREREQ"
-}
-
-case $1 in
-    prereqs)
-        prereqs
-        exit 0
-    ;;
-esac
-
-sleep 1
-touch /var/log/lastlog
-
-echo "Starting dropbear ssh daemon."
-/usr/sbin/dropbear -E -b /etc/dropbear/banner -d /etc/dropbear/dropbear_dss_host_key -r /etc/dropbear/dropbear_rsa_host_key -p22 &
-
-EOF
-if ( $openvpn )
-then
-    sed -i 's|PREREQ="network"|PREREQ="openvpn"|g' ${DESTDIR}/scripts/local-top/ssh
-fi
-chmod 700 ${DESTDIR}/scripts/local-top/ssh
-
-# Setup script for setting up the network
-cat >${DESTDIR}/scripts/local-top/network << 'EOF'
-#!/bin/sh
-
-PREREQ="udev"
-
-prereqs()
-{
-    echo "$PREREQ"
-}
-
-case $1 in
-    prereqs)
-        prereqs
-        exit 0
-    ;;
-esac
-
-echo "Configuring the Network."
-@netconfig@
-
-EOF
-
-netconfig="ifconfig $interface up\n"
-if ( $dhcp )
-then
-    netconfig="${netconifg}udhcpc -b -s /bin/simple.script -i $interface\n"
-else
-    netconfig="${netconfig}ifconfig $interface $ip_address netmask $netmask\n"
-    netconfig="${netconfig}route add default $interface\n"
-    netconfig="${netconfig}route add default gw $gateway\n"
-    
-    if [ -n "$extended_routing" ]
-    then
-        netconfig="${netconfig}${extended_routing}\n"
-    fi
-
-fi
-
-if [ -n "$nameserver" ]
-then
-    netconfig="${netconfig}echo namerserver $nameserver > /etc/resolv.conf\n"
-fi
-
-sed -i "s|@netconfig@|$netconfig|g" ${DESTDIR}/scripts/local-top/network
-chmod 700 ${DESTDIR}/scripts/local-top/network
-
-# Cleanup script for dropbear 
-cat >${DESTDIR}/scripts/local-bottom/kill_dropbear << 'EOF'
-#!/bin/sh
-
-PREREQ=""
-
-prereqs()
-{
-    echo "$PREREQ"
-}
-
-case $1 in
-    prereqs)
-        prereqs
-        exit 0
-    ;;
-esac
-
-echo "Killing all running dropbear daemons."
-killall -9 dropbear 1>&2 2>/dev/null
-
-EOF
-chmod 700 ${DESTDIR}/scripts/local-bottom/kill_dropbear
-
-# Banner for dropbear
-cat >${DESTDIR}/etc/dropbear/banner << 'EOF'
-
-    Initramfs on @hostname@ 
-      
-EOF
-sed -i "s|@hostname@|$hostname|g" ${DESTDIR}/etc/dropbear/banner
-
-# dhcp setup - This script is from busybox project
-# (http://git.busybox.net/busybox/plain/examples/udhcp/simple.script)
-cat >${DESTDIR}/bin/simple.script << 'EOF'
-#!/bin/sh
-# udhcpc script edited by Tim Riker <Tim@Rikers.org>
-
-RESOLV_CONF="/etc/resolv.conf"
-
-[ -n "$1" ] || { echo "Error: should be called from udhcpc"; exit 1; }
-
-NETMASK=""
-[ -n "$subnet" ] && NETMASK="netmask $subnet"
-BROADCAST="broadcast +"
-[ -n "$broadcast" ] && BROADCAST="broadcast $broadcast"
-
-case "$1" in
-    deconfig)
-        echo "Setting IP address 0.0.0.0 on $interface"
-        ifconfig $interface 0.0.0.0
-        ;;
-
-    renew|bound)
-        echo "Setting IP address $ip on $interface"
-        ifconfig $interface $ip $NETMASK $BROADCAST
-
-        if [ -n "$router" ] ; then
-            echo "Deleting routers"
-            while route del default gw 0.0.0.0 dev $interface ; do
-                :
-            done
-
-            metric=0
-            for i in $router ; do
-                echo "Adding router $i"
-                route add default gw $i dev $interface metric $((metric++))
-            done
-        fi
-
-        echo "Recreating $RESOLV_CONF"
-        echo -n > $RESOLV_CONF-$$
-        [ -n "$domain" ] && echo "search $domain" >> $RESOLV_CONF-$$
-        for i in $dns ; do
-            echo " Adding DNS server $i"
-            echo "nameserver $i" >> $RESOLV_CONF-$$
-        done
-        mv $RESOLV_CONF-$$ $RESOLV_CONF
-        ;;
-esac
-
-exit 0 
-EOF
-chmod 700 ${DESTDIR}/bin/simple.script 
-
 # Little script to decrypt devices from crypttab 
 cat >${DESTDIR}/bin/decrypt << 'EOF'
 #!/bin/sh
@@ -402,7 +202,6 @@ do
         done
     fi
 done
-
 EOF
 chmod 700 ${DESTDIR}/bin/decrypt
 
@@ -416,25 +215,8 @@ then
     mkdir -p ${DESTDIR}/etc/mdadm/
     cp -fpL /etc/mdadm/mdadm.conf ${DESTDIR}/etc/mdadm/
 fi
-
-if [ ! -e /etc/dropbear/dropbear_dss_host_key ] || [ ! -e /etc/dropbear/dropbear_rsa_host_key ]
-then
-    error_exit "Dropbear keys not found"
-else
-    cp -frpL /etc/dropbear ${DESTDIR}/etc/
-fi
-
-cp -fpL /etc/nsswitch.conf ${DESTDIR}/etc/
-cp -fpL /etc/localtime ${DESTDIR}/etc/
 cp -fpL /etc/fstab ${DESTDIR}/etc/
 cp -fpL /etc/crypttab ${DESTDIR}/etc/
-cp -fpL /etc/group ${DESTDIR}/etc/
-cp -fpL /etc/gai.conf ${DESTDIR}/etc/
-cp -fpL /etc/ld.so.cache ${DESTDIR}/etc/
-
-cp -fprL /lib/libns* ${DESTDIR}/lib/ 
-cp -fpL /lib/i386-linux-gnu/libns* ${DESTDIR}/lib/i386-linux-gnu/
-cp -fpL /usr/lib/libz.so.1 ${DESTDIR}/usr/lib/
 
 ######## }}} #######################
 

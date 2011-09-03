@@ -9,7 +9,8 @@ If you want to put this repo directly in your hooks directory, best deactivate t
 tracking of chmod +/-x with 'git config core.fileMode false'.
 
 Scripts:
-	> cryptoroot.sh		- Decrypt luks root-filesystems on remote maschines
+    > network.sh        - Configurable network and dropbear support
+    > cryptoroot.sh     - Decrypt luks root-filesystems on remote maschines
     > sleep.sh          - blocking boot procedure for a specific time
     > openvpn.sh        - OpenVPN support
 
@@ -17,26 +18,47 @@ if you need support or have cool improvements, don't hesitate to write a short m
     > simon.codingmonkey@googlemail.com
 
 ###################
+network.sh
+###################
+
+This hook gives you configurable network settings and dropbear support for your initramfs.
+
+In any case, have a look at the config settings in the head of the file, that you might want 
+to edit first. Also, if you want to use the dropbear, you need some kind of blocker script or
+you wouldn't have a chance to login before initramfs is finished. sleep.sh or cryptoroot.sh 
+would do the trick.
+
+If you want to use this, deactivate the native debian way by setting "DROPBEAR=n"
+and "DEVICE=" (empty value) in /etc/initramfs-tools/initramfs.conf.
+
+###################
 cryptoroot.sh
 ###################
 
+Depends: network.sh
+
 This script allows you to build an initrd that stops boot-procedure to let you
-type in passphrases to uncrypt your crypto devices. It also supports ethernet with
-dropbear ssh daemon to unlock root partition on remote hosts. For now it assumes that every
-entry in the crypttab is a luks device, but it will identify and use random crypted swap
-partitions.
-
-This script has a few config settings in the head that you might want to edit first.
-
+type in passphrases to uncrypt your crypto devices.
 To make my life easier it brings a little menu, a script to unlock entrys from crypttab
 and maybe someday a remote-control-friendly tool to unlock my mediacenter.
 
-* If you only want the "decrypt for remote host"-feature, this here is depricated since Debian 
-* has a native sollution for this now. Today these scripts are only usefull, if you want to 
-* have a little more controll over the process, have some kind of freaky setup, need extended 
-* routing (e.g. hetzner) or for whatever reason the debian default way might not work for you.
-* But if you still want to use this, deactivate the native debian way by setting "DROPBEAR=n" 
-* and "DEVICE=" (empty value) in /etc/initramfs-tools/initramfs.conf.
+This script has a few config settings in the head that you might want to edit first.
+
+Debian has a native feature in initramfs to decrypt root partitions and swap from crypttab.
+This will be triggered after our hook. If you already decrypted root via this hook, the debian
+initramfs step will be skipped automatically. It also detects that (random crpyted) swap is not
+used yet, and sets it up for us.
+
+###################
+openvpn.sh
+###################
+
+Depends: network.sh
+
+Copies OpenVPN to the initramfs. Have a look at the config inside the script and change the 
+paths to your config and certs.
+If you want to combine this with the network.sh hook, please set "openvpn=true" in the config
+part of the network.sh script.
 
 ###################
 sleep.sh
