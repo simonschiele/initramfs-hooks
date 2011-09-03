@@ -33,7 +33,7 @@ hostname="nerdmail.de"
 openvpn=false
 
 depends="/bin/loadkeys /bin/chvt /usr/sbin/dropbear /usr/bin/passwd /bin/login"
-needed_directories="/usr/sbin/ /root/.ssh/ /var/run/ /var/tmp/ /var/lock /var/log /etc/dropbear /lib/i386-linux-gnu"
+needed_directories="/usr/sbin/ /root/.ssh/ /var/run/ /var/tmp/ /var/lock /var/log /etc/dropbear /lib/i386-linux-gnu /lib/x86_64-linux-gnu"
 
 ######## }}} #######################
 
@@ -257,9 +257,15 @@ cp -fpL /etc/localtime ${DESTDIR}/etc/
 cp -fpL /etc/group ${DESTDIR}/etc/
 cp -fpL /etc/gai.conf ${DESTDIR}/etc/
 cp -fpL /etc/ld.so.cache ${DESTDIR}/etc/
-cp -fprL /lib/libns* ${DESTDIR}/lib/ 
-cp -fpL /lib/i386-linux-gnu/libns* ${DESTDIR}/lib/i386-linux-gnu/
 cp -fpL /usr/lib/libz.so.1 ${DESTDIR}/usr/lib/
+
+if ( uname -m | grep -q "i[0-9]86" )
+then
+    cp -fprL /lib/libns* ${DESTDIR}/lib/ 
+    cp -fpL /lib/i386-linux-gnu/libns* ${DESTDIR}/lib/i386-linux-gnu/
+elif 
+    cp -fpL /lib/x86_64-linux-gnu/libns* ${DESTDIR}/lib/x86_64-linux-gnu/ 
+fi
 
 ######## }}} #######################
 
