@@ -99,7 +99,9 @@ done
 
 echo -e "/bin/sh\n/bin/bash\n" > ${DESTDIR}/etc/shells
 grep -e root -e $username /etc/shadow > ${DESTDIR}/etc/shadow
-grep -e root -e $username /etc/passwd | sed -e 's@/bin/\(false\|bash\|sh\|zsh\|screen\)@/bin/sh@g' -e 's|/home/.*:|/var/tmp:|g' > ${DESTDIR}/etc/passwd
+grep -e root -e $username /etc/passwd | sed -e 's@/bin/\(false\|bash\|sh\|zsh\|screen\)@/bin/sh@g' -e "s|/home/.*:|/home/${username}:|g" > ${DESTDIR}/etc/passwd
+mkdir -p ${DESTDIR}/home/$username
+chown $username: ${DESTDIR}/home/$username -R
 
 ##### Generate Scripts {{{ #########
 
