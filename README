@@ -49,6 +49,10 @@ This will be triggered after our hook. If you already decrypted root via this ho
 initramfs step will be skipped automatically. It also detects that (random crpyted) swap is not
 used yet, and sets it up for us.
 
+Also there are a few kernel parameters to overwrite configured values on the fly:
+nethook_mode=<dhcp|static>              - Force dhcp
+nethook_interface=<eth0|eth1|...>       - Use given interface for network configuration 
+
 ###################
 openvpn.sh
 ###################

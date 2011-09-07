@@ -18,7 +18,7 @@ ip_address="192.168.5.200"
 netmask="255.255.255.0"
 gateway="192.168.5.1"
 nameserver=""  
-extended_routing="date > /tmp/" # normally not needed, leave blank
+extended_routing="" # normally not needed, leave blank
 
 # These are my settings for a hetzner rootserver
 #ip_address="178.63.94.74"
@@ -141,6 +141,12 @@ cat >${DESTDIR}/scripts/local-top/network << 'EOF'
 
 PREREQ="udev"
 
+mode="MODE"
+interface="INTERFACE"
+ip_address="IP_ADDRESS"
+netmask="NETMASK"
+gateway="GATEWAY"
+
 prereqs()
 {
     echo "$PREREQ"
@@ -154,39 +160,69 @@ case $1 in
 esac
 
 echo "Configuring the Network."
-@netconfig@
+
+if ( cat /proc/cmdline | grep -i -q "nethook_mode=" )
+then
+    cmd_mode=$( cat /proc/cmdline | sed "s|.*nethook_mode=\(.*\).*|\1|g" | cut -f1 -d' ' )
+    if [ -n "$cmd_mode" ]
+    then
+        echo "> Overwriting mode to kernel paramter value: '$cmd_mode'"
+        mode="$cmd_mode"
+    fi
+fi
+
+if ( cat /proc/cmdline | grep -i -q "nethook_interface=" )
+then
+    cmd_interface=$( cat /proc/cmdline | sed "s|.*nethook_interface=\(.*\).*|\1|g" | cut -f1 -d' ' )
+    if [ -n "$cmd_interface" ]
+    then
+        echo "> Overwriting interface to kernel paramter value: '$cmd_interface'"
+        interface="$cmd_interface"
+    fi
+fi
+
+ifconfig $interface up
+if [ "$mode" == "static" ]
+then
+    echo "> Using static configuration ($ip_address / $netmask)"
+    ifconfig $interface $ip_address netmask $netmask 
+    route add default $interface
+    route add default gw $gateway
+else
+    echo "> Using DHCP."
+    udhcpc -b -s /bin/simple.script -i $interface
+fi
 
 EOF
-
-netconfig="ifconfig $interface up\n"
+sed -i "s|INTERFACE|$interface|g" ${DESTDIR}/scripts/local-top/network
+sed -i "s|IP_ADDRESS|$ip_address|g" ${DESTDIR}/scripts/local-top/network
+sed -i "s|NETMASK|$netmask|g" ${DESTDIR}/scripts/local-top/network
+sed -i "s|GATEWAY|$gateway|g" ${DESTDIR}/scripts/local-top/network
 if ( $dhcp )
 then
-    netconfig="${netconifg}udhcpc -b -s /bin/simple.script -i $interface\n"
+    sed -i 's|MODE|dhcp|g' ${DESTDIR}/scripts/local-top/network
 else
-    netconfig="${netconfig}ifconfig $interface $ip_address netmask $netmask\n"
-    netconfig="${netconfig}route add default $interface\n"
-    netconfig="${netconfig}route add default gw $gateway\n"
+    sed -i 's|MODE|static|g' ${DESTDIR}/scripts/local-top/network
 fi
 
 if [ -n "$extended_routing" ]
 then
-    netconfig="${netconfig}${extended_routing}\n"
+    echo "${extended_routing}" >> ${DESTDIR}/scripts/local-top/network
 fi
 
 if [ -n "$nameserver" ]
 then
-    netconfig="${netconfig}echo namerserver $nameserver > /etc/resolv.conf\n"
+    echo "echo \"nameserver ${nameserver}\" > /etc/resolv.conf" >> ${DESTDIR}/scripts/local-top/network
 fi
-sed -i "s|@netconfig@|$netconfig|g" ${DESTDIR}/scripts/local-top/network
 chmod 700 ${DESTDIR}/scripts/local-top/network
 
 # Banner for dropbear
 cat >${DESTDIR}/etc/dropbear/banner << 'EOF'
 
-    Initramfs on @hostname@ 
+    Initramfs on HOSTNAME 
       
 EOF
-sed -i "s|@hostname@|$hostname|g" ${DESTDIR}/etc/dropbear/banner
+sed -i "s|HOSTNAME|$hostname|g" ${DESTDIR}/etc/dropbear/banner
 
 # dhcp setup - This script is from busybox project
 # (http://git.busybox.net/busybox/plain/examples/udhcp/simple.script)
