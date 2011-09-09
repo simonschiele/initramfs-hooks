@@ -192,7 +192,7 @@ do
         echo "Decrypting device $cryptdevice as $cryptname."
         while ( true )
         do
-            if ( /sbin/cryptsetup luksOpen $cryptdevice $cryptname )
+            if ( /bin/sh -c "/sbin/cryptsetup luksOpen ${cryptdevice} ${cryptname}" )
             then
                 echo "$cryptname ($cryptdevice) unlocked."
                 break
