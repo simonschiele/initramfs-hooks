@@ -173,8 +173,9 @@ then
 fi
 
 echo "Decrypting devices from crypttab"
-
-sed '/^$/d' /etc/crypttab | grep -v "/dev/urandom" | while read cryptline
+OLDIFS="$IFS"
+IFS=$'\n'
+for cryptline in $( sed '/^$/d' /etc/crypttab ) 
 do
     cryptname=$( echo "$cryptline" | awk {'print $1'} )
     cryptdevice=$( echo "$cryptline" | awk {'print $2'} )
@@ -192,7 +193,7 @@ do
         echo "Decrypting device $cryptdevice as $cryptname."
         while ( true )
         do
-            if ( /bin/sh -c "/sbin/cryptsetup luksOpen ${cryptdevice} ${cryptname}" )
+            if ( /sbin/cryptsetup -T 5 luksOpen ${cryptdevice} ${cryptname} )
             then
                 echo "$cryptname ($cryptdevice) unlocked."
                 break
@@ -202,6 +203,10 @@ do
         done
     fi
 done
+IFS="$OLDIFS"
+
+exit 0
+
 EOF
 chmod 700 ${DESTDIR}/bin/decrypt
 
