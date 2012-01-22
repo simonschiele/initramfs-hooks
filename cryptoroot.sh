@@ -190,6 +190,13 @@ do
         echo "$cryptname ($cryptdevice) seems to be random swap - will skip device for now"
     else
         cryptdevice=$( echo "$cryptdevice" | sed 's|UUID=|/dev/disk/by-uuid/|g' )
+        
+        # failover hacks for devices to be recognized as luks
+        /sbin/cryptsetup isLuks $cryptdevice > /dev/null
+        /sbin/mdadm $cryptdevice > /dev/null
+        /sbin/mdadm $cryptdevice > /dev/null
+        /sbin/mdadm $cryptdevice > /dev/null
+        
         echo "Decrypting device $cryptdevice as $cryptname."
         while ( true )
         do
@@ -200,6 +207,7 @@ do
             else
                 echo "Could not unlock $cryptname ($cryptdevice). Please try again."
             fi
+            sleep 1
         done
     fi
 done
