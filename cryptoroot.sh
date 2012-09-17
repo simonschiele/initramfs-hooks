@@ -16,7 +16,7 @@ depends="/sbin/cryptsetup /sbin/dmsetup"
 optional_depends="/sbin/mdadm"
 
 # Hostname for greeting line
-hostname="nerdmail.de"
+hostname="cpad.cnet.loc"
 
 ######## }}} #######################
 
@@ -67,7 +67,7 @@ for dep in $optional_depends
 do
     if [ ! -x $dep ]
     then
-        warning "Missing Depends: $dep"
+        warning "Missing Optional Depends: $dep"
     else
         copy_exec $dep
     fi
@@ -103,17 +103,35 @@ menu()
 
 message() 
 {
+    ip=$( ifconfig eth0 2>/dev/null | grep "\([0-9]\{1,3\}\.\)\{3\}[0-9]\{1,3\}" | sed 's|.*:\(.*\)\ .*:\(.*\)|\1|g' )
     echo ''
     echo ''
     echo 'Welcome to @hostname@'
     echo ''
-    echo 'Available commands:'
-    echo ' status)   Crypto Volume Status'
-    echo ' unlock)   Decrypt and mount Harddisks'
-    echo ' boot)     Continue booting'
-    echo ' reboot)   Rebooting the System'
-    echo ' sh)       Shell'
+    echo "IP: ${ip:-'-'}"
     echo ''
+    OLDIFS="$IFS"
+    IFS=$'\n'
+    for cryptline in $( sed '/^$/d' /etc/crypttab | grep -v "^\ *#" ) 
+    do
+        cryptname=$( echo "$cryptline" | awk {'print $1'} )
+        cryptdevice=$( echo "$cryptline" | awk {'print $2'} )
+        echo -n "${cryptname} (${cryptdevice}) is "
+        if [ -e /dev/mapper/${cryptname} ]
+        then
+            echo "unlocked"
+        else
+            echo "locked"
+        fi
+    done 
+    IFS="$OLDIFS"
+    echo ''
+    echo 'Available commands:'
+    echo ' refresh)         Refresh this menu'
+    echo ' unlock)          Decrypt and mount Harddisks'
+    echo ' boot)            Continue booting'
+    echo ' reboot|halt)     Reboot/Shutdown the System'
+    echo ' sh)              Debug Shell'
     echo ''
     echo 'Please input Command:'
 }
@@ -145,6 +163,14 @@ do
     then
         echo "Rebooting the System"
         reboot
+    elif [ $INPUT == 'halt' ] || [ $INPUT == 'shutdown' ] 
+    then
+        echo "Shutting the system down"
+        shutdown
+    elif [ $INPUT == 'clear' ] || [ $INPUT == 'refresh' ] || [ $INPUT == 'cls' ]
+    then
+        clear
+        message
     elif [ $INPUT == 'boot' ] || [ $INPUT == 'continue' ]
     then
         clear
@@ -155,7 +181,10 @@ do
     fi
 done
 
-killall -9 cryptroot_block 1>&2 2>/dev/null
+killall -9 cryptroot_block >/dev/null >&2
+killall -9 dropbear >/dev/null >&2
+killall -9 udhcpc >/dev/null >&2
+kill -9 $( ps ax | grep udhcp | grep -v grep | awk {'print $1'}) >/dev/null >&2
 
 EOF
 sed -i "s|@hostname@|$hostname|g" ${DESTDIR}/scripts/local-top/cryptroot_block 
@@ -175,7 +204,7 @@ fi
 echo "Decrypting devices from crypttab"
 OLDIFS="$IFS"
 IFS=$'\n'
-for cryptline in $( sed '/^$/d' /etc/crypttab ) 
+for cryptline in $( sed '/^$/d' /etc/crypttab | grep -v "^\ *#" ) 
 do
     cryptname=$( echo "$cryptline" | awk {'print $1'} )
     cryptdevice=$( echo "$cryptline" | awk {'print $2'} )
@@ -192,23 +221,25 @@ do
         cryptdevice=$( echo "$cryptdevice" | sed 's|UUID=|/dev/disk/by-uuid/|g' )
         
         # failover hacks for devices to be recognized as luks
-        /sbin/cryptsetup isLuks $cryptdevice > /dev/null
-        /sbin/mdadm $cryptdevice > /dev/null
-        /sbin/mdadm $cryptdevice > /dev/null
-        /sbin/mdadm $cryptdevice > /dev/null
-        
-        echo "Decrypting device $cryptdevice as $cryptname."
-        while ( true )
-        do
-            if ( /sbin/cryptsetup -T 5 luksOpen ${cryptdevice} ${cryptname} )
+        /sbin/cryptsetup isLuks $cryptdevice >/dev/null 2>&1 
+        /sbin/mdadm $cryptdevice >/dev/null 2>&1
+        /sbin/mdadm $cryptdevice >/dev/null 2>&1
+        /sbin/mdadm $cryptdevice >/dev/null 2>&1
+
+        if [ -e /dev/mapper/${cryptname} ]
+        then
+            echo "Device already unlocked"
+        else
+            echo "Decrypting device ${cryptdevice} as ${cryptname}."
+            if ( /sbin/cryptsetup -T 10 luksOpen ${cryptdevice} ${cryptname} )
             then
-                echo "$cryptname ($cryptdevice) unlocked."
+                echo "$cryptname (${cryptdevice}) unlocked."
                 break
             else
-                echo "Could not unlock $cryptname ($cryptdevice). Please try again."
+                echo "Could not unlock ${cryptname} (${cryptdevice})."
+                sleep 5
             fi
-            sleep 1
-        done
+        fi
     fi
 done
 IFS="$OLDIFS"

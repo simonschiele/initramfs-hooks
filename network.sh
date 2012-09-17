@@ -27,7 +27,7 @@ extended_routing="" # normally not needed, leave blank
 #extended_routing="route add -net 178.63.94.64 netmask 255.255.255.192 gw 178.63.94.65"
 
 # Hostname for greeting line
-hostname="nerdmail.de"
+hostname="cpad.cnet.loc"
 
 # openvpn support (needs also openvpn.sh hook)
 openvpn=false
@@ -82,6 +82,11 @@ else
     fi
 fi
 
+if ! [ -e /etc/dropbear/log/main ]
+then
+    touch /etc/dropbear/log/main 
+fi
+
 for dir in $needed_directories
 do
     mkdir -p ${DESTDIR}${dir}
@@ -127,7 +132,7 @@ sleep 1
 touch /var/log/lastlog
 
 echo "Starting dropbear ssh daemon."
-/usr/sbin/dropbear -E -b /etc/dropbear/banner -d /etc/dropbear/dropbear_dss_host_key -r /etc/dropbear/dropbear_rsa_host_key -p22 &
+/usr/sbin/dropbear -E -b /etc/dropbear/banner -d /etc/dropbear/dropbear_dss_host_key -r /etc/dropbear/dropbear_rsa_host_key -p22 >/dev/null 2>&1 &
 
 EOF
 if ( $openvpn )
@@ -168,7 +173,7 @@ then
     cmd_mode=$( cat /proc/cmdline | sed "s|.*nethook_mode=\(.*\).*|\1|g" | cut -f1 -d' ' )
     if [ -n "$cmd_mode" ]
     then
-        echo "> Overwriting mode to kernel paramter value: '$cmd_mode'"
+        #echo "> Overwriting mode to kernel paramter value: '$cmd_mode'"
         mode="$cmd_mode"
     fi
 fi
@@ -178,7 +183,7 @@ then
     cmd_interface=$( cat /proc/cmdline | sed "s|.*nethook_interface=\(.*\).*|\1|g" | cut -f1 -d' ' )
     if [ -n "$cmd_interface" ]
     then
-        echo "> Overwriting interface to kernel paramter value: '$cmd_interface'"
+        #echo "> Overwriting interface to kernel paramter value: '$cmd_interface'"
         interface="$cmd_interface"
     fi
 fi
@@ -187,12 +192,12 @@ ifconfig $interface up
 if [ "$mode" == "static" ]
 then
     echo "> Using static configuration ($ip_address / $netmask)"
-    ifconfig $interface $ip_address netmask $netmask 
-    route add default $interface
-    route add default gw $gateway
+    ifconfig $interface $ip_address netmask $netmask >/dev/null 2>&1
+    route add default $interface >/dev/null 2>&1
+    route add default gw $gateway >/dev/null 2>&1
 else
     echo "> Using DHCP."
-    udhcpc -b -s /bin/simple.script -i $interface
+    udhcpc -f -S -i $interface -s /bin/simple.script >/dev/null 2>&1 &
 fi
 
 EOF
@@ -243,35 +248,35 @@ BROADCAST="broadcast +"
 
 case "$1" in
     deconfig)
-        echo "Setting IP address 0.0.0.0 on $interface"
-        ifconfig $interface 0.0.0.0
+        #echo "Setting IP address 0.0.0.0 on $interface"
+        ifconfig $interface 0.0.0.0 >/dev/null 2>&1
         ;;
 
     renew|bound)
-        echo "Setting IP address $ip on $interface"
-        ifconfig $interface $ip $NETMASK $BROADCAST
+        #echo "Setting IP address $ip on $interface"
+        ifconfig $interface $ip $NETMASK $BROADCAST >/dev/null 2>&1
 
         if [ -n "$router" ] ; then
-            echo "Deleting routers"
-            while route del default gw 0.0.0.0 dev $interface ; do
+            #echo "Deleting routers"
+            while route del default gw 0.0.0.0 dev $interface >/dev/null 2>&1 ; do
                 :
             done
 
             metric=0
             for i in $router ; do
-                echo "Adding router $i"
-                route add default gw $i dev $interface metric $((metric++))
+                #echo "Adding router $i"
+                route add default gw $i dev $interface metric $((metric++)) >/dev/null 2>&1
             done
         fi
 
-        echo "Recreating $RESOLV_CONF"
+        #echo "Recreating $RESOLV_CONF"
         echo -n > $RESOLV_CONF-$$
         [ -n "$domain" ] && echo "search $domain" >> $RESOLV_CONF-$$
         for i in $dns ; do
-            echo " Adding DNS server $i"
+            #echo " Adding DNS server $i"
             echo "nameserver $i" >> $RESOLV_CONF-$$
         done
-        mv $RESOLV_CONF-$$ $RESOLV_CONF
+        mv $RESOLV_CONF-$$ $RESOLV_CONF >/dev/null 2>&1
         ;;
 esac
 
@@ -295,7 +300,6 @@ cp -fpL /etc/localtime ${DESTDIR}/etc/
 cp -fpL /etc/group ${DESTDIR}/etc/
 cp -fpL /etc/gai.conf ${DESTDIR}/etc/
 cp -fpL /etc/ld.so.cache ${DESTDIR}/etc/
-cp -fpL /usr/lib/libz.so.1 ${DESTDIR}/usr/lib/
 
 if ( uname -m | grep -q "i[0-9]86" )
 then
