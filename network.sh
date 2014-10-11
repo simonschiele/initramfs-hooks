@@ -27,7 +27,7 @@ extended_routing="" # normally not needed, leave blank
 #extended_routing="route add -net 178.63.94.64 netmask 255.255.255.192 gw 178.63.94.65"
 
 # Hostname for greeting line
-hostname="cpad.cnet.loc"
+hostname="cpad.cnet"
 
 # openvpn support (needs also openvpn.sh hook)
 openvpn=false
@@ -197,7 +197,7 @@ then
     route add default gw $gateway >/dev/null 2>&1
 else
     echo "> Using DHCP."
-    udhcpc -f -S -i $interface -s /bin/simple.script >/dev/null 2>&1 &
+    udhcpc -b -S -i $interface -s /bin/simple.script >/dev/null 2>&1 &
 fi
 
 EOF

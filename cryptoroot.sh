@@ -16,7 +16,7 @@ depends="/sbin/cryptsetup /sbin/dmsetup"
 optional_depends="/sbin/mdadm"
 
 # Hostname for greeting line
-hostname="cpad.cnet.loc"
+hostname="cpad.cnet"
 
 ######## }}} #######################
 
