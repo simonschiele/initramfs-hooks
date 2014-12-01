@@ -197,7 +197,7 @@ then
     route add default gw $gateway >/dev/null 2>&1
 else
     echo "> Using DHCP."
-    udhcpc -b -S -i $interface -s /bin/simple.script >/dev/null 2>&1 &
+    udhcpc -p /tmp/bb_udhcpc.pid -f -i $interface -s /bin/simple.script >/dev/null 2>&1 &
 fi
 
 EOF

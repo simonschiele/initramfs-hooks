@@ -13,7 +13,7 @@ needed_directories="/usr/sbin/ /var/run/ /var/tmp/ /var/lock /var/log"
 # depends that are not installed automatically - optional depends are only used
 # if installed on the base system.
 depends="/sbin/cryptsetup /sbin/dmsetup"
-optional_depends="/sbin/mdadm"
+optional_depends="/sbin/mdadm /bin/mountpoint"
 
 # Hostname for greeting line
 hostname="cpad.cnet"
@@ -181,10 +181,11 @@ do
     fi
 done
 
+kill -9 $( cat /tmp/bb_udhcpc.pid ) >/dev/null >&2
 killall -9 cryptroot_block >/dev/null >&2
 killall -9 dropbear >/dev/null >&2
 killall -9 udhcpc >/dev/null >&2
-kill -9 $( ps ax | grep udhcp | grep -v grep | awk {'print $1'}) >/dev/null >&2
+kill -9 $( ps ax | grep udhcp | grep -v grep | awk {'print $1'} ) >/dev/null >&2
 
 EOF
 sed -i "s|@hostname@|$hostname|g" ${DESTDIR}/scripts/local-top/cryptroot_block 
