@@ -112,7 +112,7 @@ message()
     echo ''
     OLDIFS="$IFS"
     IFS=$'\n'
-    for cryptline in $( sed '/^$/d' /etc/crypttab | grep -v "^\ *#" ) 
+    for cryptline in $( sed '/^$/d' /etc/crypttab | grep -v -e "^\ *#" -e "/dev/random" ) 
     do
         cryptname=$( echo "$cryptline" | awk {'print $1'} )
         cryptdevice=$( echo "$cryptline" | awk {'print $2'} )

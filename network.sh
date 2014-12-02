@@ -1,24 +1,26 @@
 #!/bin/sh
 
-#
-# configurable network initramfs hook 
-# by simon <simon.codingmonkey@googlemail.com>
-#
+# configurable network initramfs hook
+# by Simon Schiele <simon.codingmonkey@googlemail.com>
 
-##### Config {{{ ###################
+
+##### Config ###############
 
 # useraccount that will be copied to initramfs, additional to the root account
+# empty will try to detect the main user
+# use "none" if you really want no additional account
 username=simon
 
-# setup network (if dhcp=true you can ignore ip_adress, netmask and gateway.
-# nameserver and extended routing are optional anyways.)
+# setup network 
 interface=eth0
 dhcp=true
+
+# setup network manually: only used if dhcp=false
 ip_address="192.168.5.200"
 netmask="255.255.255.0"
-gateway="192.168.5.1"
-nameserver=""  
-extended_routing="" # normally not needed, leave blank
+gateway="192.168.5.1"       # not really needed in initramfs
+nameserver=""               # srsly, why would you need a nameserver in initramfs?
+extended_routing=""         # routing-line, normally not needed, leave blank
 
 # These are my settings for a hetzner rootserver
 #ip_address="178.63.94.74"
